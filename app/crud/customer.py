@@ -2,14 +2,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerUpdate
+from app.integrations.producer import publish_event
+
 from app.core.exceptions import (
     NotFoundException,
     ConflictException,
-    UnprocessableEntityException,
     InternalServerErrorException
 )
-
-
 
 
 def get_all_customers(db: Session):
@@ -19,10 +18,6 @@ def get_all_customers(db: Session):
         raise InternalServerErrorException("Failed to fetch customers")
 
 
-
-
-
-
 def get_customer(db: Session, customer_id):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
@@ -30,31 +25,23 @@ def get_customer(db: Session, customer_id):
     return customer
 
 
-
-
-
-
 def create_customer(db: Session, customer: CustomerCreate):
-    try:
-        # duplicate email check
-        existing = db.query(Customer).filter(Customer.email == customer.email).first()
-        if existing:
-            raise ConflictException("A customer with this email already exists")
+    existing = db.query(Customer).filter(Customer.email == customer.email).first()
+    if existing:
+        raise ConflictException("Customer with this email already exists")
 
-        db_customer = Customer(**customer.model_dump())
-        db.add(db_customer)
-        db.commit()
-        db.refresh(db_customer)
-        return db_customer
-    except IntegrityError:
-        db.rollback()
-        raise UnprocessableEntityException("Invalid customer data")
-    except SQLAlchemyError:
-        db.rollback()
-        raise InternalServerErrorException("Database error while creating customer")
+    db_customer = Customer(**customer.model_dump())
+    db.add(db_customer)
+    db.commit()
+    db.refresh(db_customer)
 
+    publish_event("customer.created", {
+        "id": str(db_customer.id),
+        "name": db_customer.name,
+        "email": db_customer.email
+    })
 
-
+    return db_customer
 
 
 def update_customer(db: Session, db_customer: Customer, update_data: CustomerUpdate):
@@ -63,22 +50,35 @@ def update_customer(db: Session, db_customer: Customer, update_data: CustomerUpd
             setattr(db_customer, key, value)
         db.commit()
         db.refresh(db_customer)
+
+        publish_event("customer.updated", {
+            "id": str(db_customer.id),
+            "stripe_customer_id": db_customer.stripe_customer_id,
+            "name": db_customer.name,
+            "email": db_customer.email,
+        })
+
         return db_customer
-    except IntegrityError:
+    except Exception as e:
         db.rollback()
-        raise UnprocessableEntityException("Invalid update data")
-    except SQLAlchemyError:
-        db.rollback()
-        raise InternalServerErrorException("Failed to update customer")
-
-
-
+        print("Error updating customer:", e)
+        raise
 
 
 def delete_customer(db: Session, db_customer: Customer):
     try:
+        event_payload = {
+            "id": str(db_customer.id),
+            "stripe_customer_id": db_customer.stripe_customer_id,
+            "name": db_customer.name,
+            "email": db_customer.email,
+        }
+
         db.delete(db_customer)
         db.commit()
+
+        publish_event("customer.deleted", event_payload)
+
     except SQLAlchemyError:
         db.rollback()
         raise InternalServerErrorException("Failed to delete customer")
