@@ -2,10 +2,15 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://ehtisham:123456@localhost:5432/zenskar"
+    DATABASE_URL: str
 
-    # Environment
+    STRIPE_SECRET_KEY: str
+    STRIPE_WEBHOOK_SECRET: str | None = None
+
+
+    KAFKA_BROKER_URL: str = "localhost:9092"
+    KAFKA_CUSTOMER_TOPIC: str = "customer_events"
+
     ENV: str = "development"
     DEBUG: bool = True
 

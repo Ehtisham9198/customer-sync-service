@@ -2,10 +2,13 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.db.base import Base, engine
 from app.api.v1.routes import router as api_router
+from app.integrations.consumer import start_consumer_thread
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    start_consumer_thread()
     print("Database connected and tables created")
     yield 
     print("app shutting down")
