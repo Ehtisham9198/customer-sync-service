@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Virtualenv
+venv/
+.env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker
+*.log
+*.pid
+zenskarenv/
+
+
+# Alembic
+migrations/versions/__pycache__/
