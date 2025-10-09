@@ -8,7 +8,7 @@ A **two-way synchronization system** between a local **customer catalog** and **
 * 💳 **Stripe API** (external service)
 * 🐳 **Docker Compose** (for Kafka + Zookeeper)
 
-The system ensures that any customer **added, updated, or deleted** in either system reflects in the other **within seconds** — enabling **real-time, event-driven sync**.
+The system ensures that any customer **added, updated, or deleted** in either system reflects in the other **within seconds**, enabling **real-time, event-driven sync**.
 
 ---
 
@@ -231,3 +231,58 @@ https://<your-id>.ngrok.io/api/v1/stripe/webhook
 ```
 
 ---
+
+---
+
+### Future Plan: Extending Integrations
+
+### 1. Adding Salesforce Integration
+
+Our system is already modular and event-driven, so adding **Salesforce** as another integration will be smooth and consistent.
+Here’s the plan:
+
+* Create a new integration file: `app/integrations/salesforce_integration.py`
+* Handle:
+
+  * Creating, updating, and deleting customers in Salesforce using its REST API.
+  * Receiving updates from Salesforce through webhooks or polling.
+* Add a new Kafka topic: `salesforce_customer_events`
+  This will keep Salesforce events separate from Stripe events.
+* Reuse the same consumer structure to process Salesforce events.
+* Add a small route like `/api/v1/salesforce_webhook` for inbound events.
+* No need to modify the existing Stripe flow — both integrations will work independently using the same event model.
+
+This way, new integrations (like Salesforce) can be **plugged in** without breaking or changing the current code.
+
+---
+
+###  2. Extending to Other Systems (e.g., Invoice Catalog)
+
+The same design can easily extend beyond customers — for example, to sync **invoices** or **orders**.
+
+Steps would be similar:
+
+1. Add new models and schemas (`invoice.py` in `models/`, `schemas/`, and `crud/`).
+2. Create integration logic in `app/integrations/invoice_integration.py`.
+3. Add a Kafka topic like `invoice_events` to handle invoice-related changes.
+4. Build APIs and webhooks the same way as customers.
+
+Each new module will use the same queue + consumer pattern — so the system stays **consistent, scalable, and reusable**.
+
+---
+
+### 🧩 Summary
+
+This architecture is **built for easy scaling and multiple integrations**.
+Each new system (like Salesforce, HubSpot, or an invoice catalog) can be added as a separate module —
+plugged into the same Kafka pipeline without changing the core logic.
+
+
+---
+
+
+
+## 🚀 Deployment Summary
+Run Kafka + Zookeeper → Start FastAPI → Expose webhook via ngrok → Sync starts automatically.
+All components are modular and work independently.
+
